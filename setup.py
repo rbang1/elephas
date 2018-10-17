@@ -9,7 +9,7 @@ setup(name='elephas',
       download_url='https://github.com/maxpumperla/elephas/tarball/0.3',
       author='Max Pumperla',
       author_email='max.pumperla@googlemail.com',
-      install_requires=['keras', 'tensorflow==1.9.0', 'hyperas', 'flask', 'six', 'pyspark==2.3.1'],
+      install_requires=['keras', 'hyperas', 'flask', 'six'],
       license='MIT',
       packages=find_packages(),
       zip_safe=False)
