@@ -1,9 +1,10 @@
 from __future__ import absolute_import
 
+from pyspark.mllib.linalg import Vector as MLLibVector, Matrix as MLLibMatrix
 from pyspark.mllib.regression import LabeledPoint
 import numpy as np
 
-from ..mllib.adapter import to_vector, from_vector
+from ..mllib.adapter import to_vector, from_vector, from_matrix
 from six.moves import zip
 
 
@@ -87,4 +88,29 @@ def lp_to_simple_rdd(lp_rdd, categorical=False, nb_classes=None):
         rdd = lp_rdd.map(lambda lp: (from_vector(lp.features), encode_label(lp.label, nb_classes)))
     else:
         rdd = lp_rdd.map(lambda lp: (from_vector(lp.features), lp.label))
+    return rdd
+
+def row_to_simple_rdd(row_rdd, categorical=False, nb_classes=None):
+    """Convert a Row RDD into an RDD of feature-label pairs
+
+    :param row_rdd: RDD of sql.Row with columns features and labels
+    :param categorical: boolean, if labels should be one-hot encode when returned
+    :param nb_classes: int, number of total classes
+    :return: Spark RDD with feature-label pairs
+    """
+    if categorical:
+        if not nb_classes:
+            labels = np.asarray(row_rdd.map(lambda row: float(row.label)).collect(), dtype='int32')
+            nb_classes = np.max(labels) + 1
+        rdd = row_rdd.map(lambda row: (from_vector(row.features), encode_label(float(row.label), nb_classes)))
+    else:
+        first_row = row_rdd.first()
+        if isinstance(first_row.label, MLLibVector):
+            label_fn = from_vector
+        elif isinstance(first_row.label, MLLibMatrix):
+            label_fn = from_matrix
+        else:
+            label_fn = float
+
+        rdd = row_rdd.map(lambda row: (from_vector(row.features), label_fn(row.label)))
     return rdd

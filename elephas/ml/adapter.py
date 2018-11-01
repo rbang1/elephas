@@ -1,8 +1,8 @@
 from __future__ import absolute_import
 
-from pyspark.sql import SQLContext
+from pyspark.sql import SQLContext, Row
 from pyspark.mllib.regression import LabeledPoint
-from ..utils.rdd_utils import from_labeled_point, to_labeled_point, lp_to_simple_rdd
+from ..utils.rdd_utils import from_labeled_point, to_labeled_point, row_to_simple_rdd
 from pyspark.mllib.linalg import Vector as MLLibVector, Vectors as MLLibVectors
 
 def to_data_frame(sc, features, labels, categorical=False):
@@ -30,8 +30,9 @@ def df_to_simple_rdd(df, categorical=False, nb_classes=None, features_col='featu
     selected_df = sql_context.sql(
         "SELECT {0} AS features, {1} as label from temp_table".format(features_col, label_col))
     if isinstance(selected_df.first().features, MLLibVector):
-        lp_rdd = selected_df.rdd.map(lambda row: LabeledPoint(row.label, row.features))
+        row_rdd = selected_df.rdd
     else:
-        lp_rdd = selected_df.rdd.map(lambda row: LabeledPoint(row.label, MLLibVectors.fromML(row.features)))
-    rdd = lp_to_simple_rdd(lp_rdd, categorical, nb_classes)
+        row_rdd = selected_df.rdd.map(lambda row: Row(label=row.label, features=MLLibVectors.fromML(row.features)))
+
+    rdd = row_to_simple_rdd(row_rdd, categorical, nb_classes)
     return rdd
