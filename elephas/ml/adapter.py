@@ -3,7 +3,6 @@ from __future__ import absolute_import
 from pyspark.sql import SQLContext, Row
 from pyspark.mllib.regression import LabeledPoint
 from ..utils.rdd_utils import from_labeled_point, to_labeled_point, row_to_simple_rdd
-from pyspark.mllib.linalg import Vector as MLLibVector, Vectors as MLLibVectors
 
 def to_data_frame(sc, features, labels, categorical=False):
     """Convert numpy arrays of features and labels into Spark DataFrame
@@ -29,10 +28,5 @@ def df_to_simple_rdd(df, categorical=False, nb_classes=None, features_col='featu
     sql_context.registerDataFrameAsTable(df, "temp_table")
     selected_df = sql_context.sql(
         "SELECT {0} AS features, {1} as label from temp_table".format(features_col, label_col))
-    if isinstance(selected_df.first().features, MLLibVector):
-        row_rdd = selected_df.rdd
-    else:
-        row_rdd = selected_df.rdd.map(lambda row: Row(label=row.label, features=MLLibVectors.fromML(row.features)))
-
-    rdd = row_to_simple_rdd(row_rdd, categorical, nb_classes)
+    rdd = row_to_simple_rdd(selected_df.rdd, categorical, nb_classes)
     return rdd

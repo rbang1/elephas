@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 from pyspark.mllib.linalg import Vector as MLLibVector, Matrix as MLLibMatrix
+from pyspark.ml.linalg import Vector as MLVector, Matrix as MLMatrix
 from pyspark.mllib.regression import LabeledPoint
 import numpy as np
 
@@ -105,9 +106,9 @@ def row_to_simple_rdd(row_rdd, categorical=False, nb_classes=None):
         rdd = row_rdd.map(lambda row: (from_vector(row.features), encode_label(float(row.label), nb_classes)))
     else:
         first_row = row_rdd.first()
-        if isinstance(first_row.label, MLLibVector):
+        if isinstance(first_row.label, MLLibVector) or isinstance(first_row.label, MLVector):
             label_fn = from_vector
-        elif isinstance(first_row.label, MLLibMatrix):
+        elif isinstance(first_row.label, MLLibMatrix) or isinstance(first_row.label, MLMatrix):
             label_fn = from_matrix
         else:
             label_fn = float
