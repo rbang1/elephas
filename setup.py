@@ -3,7 +3,7 @@ from setuptools import setup
 from setuptools import find_packages
 
 setup(name='elephas',
-      version='0.3.0.1',
+      version='0.3.0.2',
       description='Deep learning on Spark with Keras',
       url='http://github.com/maxpumperla/elephas',
       download_url='https://github.com/maxpumperla/elephas/tarball/0.3',
