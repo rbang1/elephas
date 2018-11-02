@@ -166,8 +166,8 @@ class ElephasTransformer(Model, HasKerasModelConfig, HasLabelCol, HasOutputCol):
         # results_rdd = rdd.zip(predictions).map(lambda pair: Row(features=to_vector(pair[0].features),
         #                                        label=pair[0].label, prediction=float(pair[1])))
         results_df = df.sql_ctx.createDataFrame(results_rdd, new_schema)
-        results_df = results_df.withColumn(output_col, results_df[output_col].cast(DoubleType()))
-        results_df = results_df.withColumn(label_col, results_df[label_col].cast(DoubleType()))
+        #results_df = results_df.withColumn(output_col, results_df[output_col].cast(DoubleType()))
+        #results_df = results_df.withColumn(label_col, results_df[label_col].cast(DoubleType()))
 
         return results_df
 
