@@ -23,7 +23,7 @@ from .optimizers import get
 class ElephasEstimator(Estimator, HasCategoricalLabels, HasValidationSplit, HasKerasModelConfig, HasFeaturesCol,
                        HasLabelCol, HasMode, HasEpochs, HasBatchSize, HasFrequency, HasVerbosity, HasNumberOfClasses,
                        HasNumberOfWorkers, HasElephasOptimizerConfig, HasOutputCol, HasLoss,
-                       HasMetrics, HasKerasOptimizerConfig):
+                       HasMetrics, HasKerasOptimizerConfig, HasPredictorType, HasOutputDataType):
     """
     SparkML Estimator implementation of an elephas model. This estimator takes all relevant arguments for model
     compilation and training.
@@ -51,7 +51,9 @@ class ElephasEstimator(Estimator, HasCategoricalLabels, HasValidationSplit, HasK
                 'batch_size': self.get_batch_size(),
                 'verbose': self.get_verbosity(),
                 'nb_classes': self.get_nb_classes(),
-                'outputCol': self.getOutputCol()}
+                'outputCol': self.getOutputCol(),
+                'predictor_type': self.get_predictor_type(),
+                'output_data_type': self.get_output_data_type()}
 
     def save(self, file_name):
         f = h5py.File(file_name, mode='w')
@@ -95,10 +97,13 @@ class ElephasEstimator(Estimator, HasCategoricalLabels, HasValidationSplit, HasK
 
         model_weights = spark_model.master_network.get_weights()
         weights = simple_rdd.ctx.broadcast(model_weights)
-        return ElephasTransformer(labelCol=self.getLabelCol(),
-                                  outputCol='prediction',  # TODO: Set default value
+        label_data_type = df.schema[self.getLabelCol()].dataType
+
+        return ElephasTransformer(outputCol='prediction',  # TODO: Set default value
                                   keras_model_config=spark_model.master_network.to_yaml(),
-                                  weights=weights)
+                                  weights=weights,
+                                  predictor_type=self.get_predictor_type(),
+                                  output_data_type=self.get_output_data_type() or label_data_type)
 
 
 def load_ml_estimator(file_name):
@@ -108,7 +113,8 @@ def load_ml_estimator(file_name):
     return ElephasEstimator(**config)
 
 
-class ElephasTransformer(Model, HasKerasModelConfig, HasLabelCol, HasOutputCol):
+class ElephasTransformer(Model, HasKerasModelConfig, HasOutputCol, HasPredictorType,
+                         HasOutputDataType):
     """SparkML Transformer implementation. Contains a trained model,
     with which new feature data can be transformed into labels.
     """
@@ -127,8 +133,9 @@ class ElephasTransformer(Model, HasKerasModelConfig, HasLabelCol, HasOutputCol):
 
     def get_config(self):
         return {'keras_model_config': self.get_keras_model_config(),
-                'labelCol': self.getLabelCol(),
-                'outputCol': self.getOutputCol()}
+                'outputCol': self.getOutputCol(),
+                'predictor_type': self.get_predictor_type(),
+                'output_data_type': self.get_output_data_type()}
 
     def save(self, file_name):
         f = h5py.File(file_name, mode='w')
@@ -149,25 +156,30 @@ class ElephasTransformer(Model, HasKerasModelConfig, HasLabelCol, HasOutputCol):
         """Private transform method of a Transformer. This serves as batch-prediction method for our purposes.
         """
         output_col = self.getOutputCol()
-        label_col = self.getLabelCol()
         new_schema = df.schema
-        new_schema.add(StructField(output_col, StringType(), True))
+        if self.get_predictor_type() == self.PREDICTOR_TYPE_REGRESSOR:
+            new_schema.add(StructField(output_col, self.get_output_data_type(), True))
+        else:
+            new_schema.add(StructField(output_col, StringType(), True))
 
         rdd = df.rdd.coalesce(1)
         features = np.asarray(rdd.map(lambda x: from_vector(x.features)).collect())
         # Note that we collect, since executing this on the rdd would require model serialization once again
         model = model_from_yaml(self.get_keras_model_config())
         model.set_weights(self.weights.value)
-        predictions = rdd.ctx.parallelize(model.predict_classes(features)).coalesce(1)
-        predictions = predictions.map(lambda x: tuple(str(x)))
+        if self.get_predictor_type() == self.PREDICTOR_TYPE_REGRESSOR:
+            predictions = rdd.ctx.parallelize(model.predict(features)).coalesce(1)
+        else:
+            predictions = rdd.ctx.parallelize(model.predict_classes(features)).coalesce(1)
+            predictions = predictions.map(lambda x: tuple(str(x)))
 
         results_rdd = rdd.zip(predictions).map(lambda x: x[0] + x[1])
         # TODO: Zipping like this is very likely wrong
         # results_rdd = rdd.zip(predictions).map(lambda pair: Row(features=to_vector(pair[0].features),
         #                                        label=pair[0].label, prediction=float(pair[1])))
         results_df = df.sql_ctx.createDataFrame(results_rdd, new_schema)
-        results_df = results_df.withColumn(output_col, results_df[output_col].cast(DoubleType()))
-        results_df = results_df.withColumn(label_col, results_df[label_col].cast(DoubleType()))
+        if self.get_predictor_type() == self.PREDICTOR_TYPE_CLASSIFIER:
+            results_df = results_df.withColumn(output_col, results_df[output_col].cast(DoubleType()))
 
         return results_df
 

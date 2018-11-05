@@ -231,3 +231,36 @@ class HasLoss(Params):
 
     def get_loss(self):
         return self.getOrDefault(self.loss)
+
+class HasPredictorType(Params):
+    """Parameter mixin for model predictor type, regressor or classifier
+    """
+    PREDICTOR_TYPE_REGRESSOR = "regressor"
+    PREDICTOR_TYPE_CLASSIFIER = "classifier"
+
+    def __init__(self):
+        super(HasPredictorType, self).__init__()
+        self.predictor_type = Param(self, "predictor_type", "Predictor Type")
+        self._setDefault(predictor_type=self.PREDICTOR_TYPE_CLASSIFIER)
+
+    def set_predictor_type(self, predictor_type):
+        self._paramMap[self.predictor_type] = predictor_type
+        return self
+
+    def get_predictor_type(self):
+        return self.getOrDefault(self.predictor_type)
+
+class HasOutputDataType(Params):
+    """Parameter mixin for output data type
+    """
+    def __init__(self):
+        super(HasOutputDataType, self).__init__()
+        self.output_data_type = Param(self, "output_data_type", "Output Data Type")
+        self._setDefault(output_data_type=None)
+
+    def set_output_data_type(self, output_data_type):
+        self._paramMap[self.output_data_type] = output_data_type
+        return self
+
+    def get_output_data_type(self):
+        return self.getOrDefault(self.output_data_type)

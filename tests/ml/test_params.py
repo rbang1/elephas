@@ -1,4 +1,5 @@
 from elephas.ml.params import *
+from pyspark.sql.types import DoubleType
 
 
 def test_has_keras_model_config():
@@ -92,3 +93,17 @@ def test_has_number_of_workers():
     workers = 12
     param.set_num_workers(workers)
     assert param.get_num_workers() == workers
+
+def test_has_predictor_type():
+    param = HasPredictorType()
+    assert param.get_predictor_type() == param.PREDICTOR_TYPE_CLASSIFIER
+    predictor_type = param.PREDICTOR_TYPE_REGRESSOR
+    param.set_predictor_type(predictor_type)
+    assert param.get_predictor_type() == predictor_type
+
+def test_has_output_data_type():
+    param = HasOutputDataType()
+    assert param.get_output_data_type() is None
+    output_data_type = DoubleType()
+    param.set_output_data_type(output_data_type)
+    assert param.get_output_data_type() == output_data_type
